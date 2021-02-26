@@ -1,31 +1,42 @@
-import { Request, Response } from 'express';
-import { getCustomRepository } from 'typeorm';
-import { UsersRepository } from '../repositories/UsersRepository';
+import { Request, Response } from "express";
+import { getCustomRepository } from "typeorm";
+import { UsersRepostory } from "../repositories/UsersRepository";
+import * as yup from 'yup';
+import { AppError } from "../errors/AppError";
 
 class UserController {
-  async create(req: Request, res: Response) {
-    const { name, email } = req.body;
-
-    const usersRepository = getCustomRepository(UsersRepository);
-
-    const userAlreadyExists = await usersRepository.findOne({
-      email,
+  async create(request: Request, response: Response) {
+    const { name, email } = request.body;
+    
+    const schema = yup.object().shape({
+      name: yup.string().required(),
+      email: yup.string().email().required(),
     });
 
-    if (userAlreadyExists) {
-      return res.status(400).json({
-        error: 'User already exists!',
-      });
+    try {
+      await schema.validate(request.body, { abortEarly: false });
+    }catch(err) {
+      throw new AppError(err.errors);
+    }
+    
+
+    const usersRepository = getCustomRepository(UsersRepostory);
+
+    const userAlreadyExists = await usersRepository.findOne({
+      email
+    })
+
+    if(userAlreadyExists) {
+      throw new AppError("User already exists!");
     }
 
     const user = usersRepository.create({
-      name,
-      email,
-    });
+      name, email
+    })
 
     await usersRepository.save(user);
 
-    return res.status(201).json(user);
+    return response.status(201).json(user);
   }
 }
 
